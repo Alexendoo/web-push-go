@@ -6,9 +6,6 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 )
@@ -28,23 +25,14 @@ func randBytes(len int) ([]byte, error) {
 // Subscription is a User Agent's push message subscription
 //
 // - https://www.w3.org/TR/push-api/#dom-pushsubscription
-// - https://www.w3.org/TR/push-api/#dom-pushsubscriptionjson
 type Subscription struct {
-	Endpoint string `json:"endpoint"`
-	Keys     Keys   `json:"keys"`
-}
+	Endpoint string
 
-// TODO - merge Keys into Subscription
-// TODO? - replace MarshalJSON with a simple func NewSubscription(json []byte) (*Subscription, error)
-
-// Keys contains the User Agent's encryption keys
-//
-// - https://www.w3.org/TR/push-api/#dom-pushsubscriptionjson-keys
-type Keys struct {
 	Auth   []byte
 	P256DH *PublicKey
 }
 
+// PublicKey is a point (X, Y) on the P-256 curve
 type PublicKey struct {
 	X, Y *big.Int
 }
@@ -54,55 +42,18 @@ type KeyPair struct {
 	Priv []byte
 }
 
-func (k *Keys) UnmarshalJSON(data []byte) error {
-	var rawKeys keysJSON
-	err := json.Unmarshal(data, &rawKeys)
-
-	k.Auth = rawKeys.Auth
-
-	x, y := elliptic.Unmarshal(p256, rawKeys.P256DH)
-
-	k.P256DH = &PublicKey{x, y}
-
-	return err
-}
-
-type keysJSON struct {
-	Auth   key `json:"auth"`
-	P256DH key `json:"p256dh"`
-}
-
-type key []byte
-
-func (k *key) UnmarshalJSON(b []byte) error {
-	var encoded string
-	err := json.Unmarshal(b, &encoded)
-
-	if err != nil {
-		return err
-	}
-
-	*k, err = base64.URLEncoding.DecodeString(encoded)
-
-	return err
-}
-
 // Encrypt a ...
 //
 // - https://tools.ietf.org/html/rfc8291#section-3.4
 func Encrypt(sub *Subscription) error {
 	// auth_secret = <from user agent>
-	authSecret := sub.Keys.Auth
+	authSecret := sub.Auth
 
 	if length := len(authSecret); length != 16 {
 		return fmt.Errorf("webpush: invalid auth length %d", length)
 	}
 
-	uaPub := sub.Keys.P256DH
-
-	if uaPub.X == nil {
-		return errors.New("webpush: invalid user agent public key")
-	}
+	uaPub := sub.P256DH
 
 	as, err := generateKeyPair(p256)
 	if err != nil {
@@ -136,8 +87,9 @@ func Encrypt(sub *Subscription) error {
 
 func generateKeyPair(curve elliptic.Curve) (*KeyPair, error) {
 	priv, x, y, err := elliptic.GenerateKey(curve, rand.Reader)
+	pub := &PublicKey{x, y}
 
-	return &KeyPair{&PublicKey{x, y}, priv}, err
+	return &KeyPair{pub, priv}, err
 }
 
 // Establish a shared secret between the given public key (publicX, publicY)
