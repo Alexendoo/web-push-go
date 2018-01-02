@@ -60,14 +60,14 @@ func UnmarshalSubscription(data []byte) (*Subscription, error) {
 		return nil, err
 	}
 
+	if length := len(subJSON.Keys.Auth); length != 16 {
+		return nil, fmt.Errorf("webpush: invalid auth length %d", length)
+	}
+
 	p256dh := &PublicKey{}
 	err = p256dh.UnmarshalBinary(subJSON.Keys.P256DH)
 	if err != nil {
 		return nil, err
-	}
-
-	if length := len(subJSON.Keys.Auth); length != 16 {
-		return nil, fmt.Errorf("webpush: invalid auth length %d", length)
 	}
 
 	sub := &Subscription{

@@ -33,6 +33,30 @@ func TestUnmarshalSubscription(t *testing.T) {
 		assert.Equal(t, expected, actual)
 	})
 
+	t.Run("InvalidJSON", func(t *testing.T) {
+		subJSON := []byte(`{`)
+
+		sub, err := UnmarshalSubscription(subJSON)
+		assert.Nil(t, sub)
+		assert.Error(t, err)
+	})
+
+	t.Run("InvalidAuth", func(t *testing.T) {
+		// 15 byte auth, wants 16
+		subJSON := []byte(`{
+			"endpoint": "https://push.example.org/send/8b905737d1017a93f93e32837fe1e010",
+			"expirationTime": null,
+			"keys": {
+				"p256dh": "BOucsUUmOQbDJpb18pmk1SqFdtfz2a0RCptX-6iBcIIeIn6Oy2hLJW0nhDLLbd-NzagSu3C9u2T-LVATsLDJG4U=",
+				"auth": "_8IrmZy3zZ3o7MyDsLXr"
+			}
+		}`)
+
+		sub, err := UnmarshalSubscription(subJSON)
+		assert.Nil(t, sub)
+		assert.Error(t, err)
+	})
+
 	t.Run("InvalidP256", func(t *testing.T) {
 		subJSON := []byte(`{
 			"endpoint": "https://push.example.org/send/c1d7c374fd0197522a41c0331ca8cfbb",
