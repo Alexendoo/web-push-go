@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 )
 
 // - https://www.w3.org/TR/push-api/#dom-pushsubscriptionjson
@@ -19,9 +20,8 @@ type keysJSON struct {
 	P256DH urlSafeBytes `json:"p256dh"`
 }
 
-// urlSafeBytes is the same []byte, however implements text [un]marshalling
-// using URL safe base64 encoding (base64.URLEncoding) instead of regular
-// base64 (base64.StdEncoding)
+// urlSafeBytes is the same []byte, however implements text unmarshalling using
+// URL safe base64 encoding (base64.URLEncoding) instead of regular base64
 type urlSafeBytes []byte
 
 func (k *urlSafeBytes) UnmarshalText(text []byte) error {
@@ -35,15 +35,6 @@ func (k *urlSafeBytes) UnmarshalText(text []byte) error {
 	return err
 }
 
-func (k urlSafeBytes) MarshalText() ([]byte, error) {
-	len := base64.URLEncoding.EncodedLen(len(k))
-	out := make([]byte, len)
-
-	base64.URLEncoding.Encode(out, k)
-
-	return out, nil
-}
-
 func (p *PublicKey) MarshalBinary() ([]byte, error) {
 	if p.X == nil {
 		return nil, errors.New("webpush: invalid public key")
@@ -53,13 +44,11 @@ func (p *PublicKey) MarshalBinary() ([]byte, error) {
 }
 
 func (p *PublicKey) UnmarshalBinary(data []byte) error {
-	x, y := elliptic.Unmarshal(p256, data)
+	p.X, p.Y = elliptic.Unmarshal(p256, data)
 
-	if x == nil {
+	if p.X == nil {
 		return errors.New("webpush: invalid public key")
 	}
-
-	p.X, p.Y = x, y
 
 	return nil
 }
@@ -75,6 +64,10 @@ func UnmarshalSubscription(data []byte) (*Subscription, error) {
 	err = p256dh.UnmarshalBinary(subJSON.Keys.P256DH)
 	if err != nil {
 		return nil, err
+	}
+
+	if length := len(subJSON.Keys.Auth); length != 16 {
+		return nil, fmt.Errorf("webpush: invalid auth length %d", length)
 	}
 
 	sub := &Subscription{

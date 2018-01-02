@@ -46,22 +46,13 @@ type KeyPair struct {
 //
 // - https://tools.ietf.org/html/rfc8291#section-3.4
 func Encrypt(sub *Subscription) error {
-	// auth_secret = <from user agent>
-	authSecret := sub.Auth
-
-	if length := len(authSecret); length != 16 {
-		return fmt.Errorf("webpush: invalid auth length %d", length)
-	}
-
-	uaPub := sub.P256DH
-
 	as, err := generateKeyPair(p256)
 	if err != nil {
 		return err
 	}
 
 	// ecdh_secret = ECDH(as_private, ua_public)
-	ecdhSecret := ecdh(as.Priv, uaPub.X, uaPub.Y)
+	ecdhSecret := ecdh(as.Priv, sub.P256DH.X, sub.P256DH.Y)
 
 	// salt = random(16)
 	salt, err := randBytes(16)
@@ -69,13 +60,13 @@ func Encrypt(sub *Subscription) error {
 		return err
 	}
 
-	keyInfo := combineSecrets(authSecret, ecdhSecret, uaPub, as.Pub)
+	keyInfo := combineSecrets(sub.Auth, ecdhSecret, sub.P256DH, as.Pub)
 
 	// TODO: got to about here
 	// Read: https://github.com/web-push-libs/ecec#what-is-encrypted-content-coding
 
 	// HKDF-Extract(salt=auth_secret, IKM=ecdh_secret)
-	prkKey := hmacSha256(authSecret, ecdhSecret)
+	prkKey := hmacSha256(sub.Auth, ecdhSecret)
 
 	// HKDF-Expand(PRK_key, key_info, L_key=32)
 	ikm := hmacSha256(prkKey, append(keyInfo, 0x01))
