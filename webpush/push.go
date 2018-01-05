@@ -145,6 +145,13 @@ func aes128gcm(plaintext []byte, info *eceInfo) ([]byte, error) {
 	return ciphertext, nil
 }
 
+// TODO:
+// - More docs
+// - Move verification from encoding back into encrypt()
+// - Configurable TTL, etc -- options object?
+// - VAPID
+// - E2E test
+
 func Encrypt(sub *Subscription, message []byte) (*http.Request, error) {
 	keypair, err := generateKey(p256)
 	if err != nil {
@@ -178,11 +185,11 @@ func encrypt(sub *Subscription, keypair *KeyPair, message, salt []byte) (*http.R
 
 	buf := &bytes.Buffer{}
 
-	// Header
+	// Header - https://tools.ietf.org/html/rfc8188#section-2.1
 	buf.Write(info.salt)
 
 	rs := make([]byte, 4)
-	rsLen := uint32(len(ciphertext))
+	rsLen := uint32(max(4096, len(ciphertext)))
 	binary.BigEndian.PutUint32(rs, rsLen)
 	buf.Write(rs)
 
@@ -192,5 +199,20 @@ func encrypt(sub *Subscription, keypair *KeyPair, message, salt []byte) (*http.R
 	// Body
 	buf.Write(ciphertext)
 
-	return http.NewRequest(http.MethodPost, sub.Endpoint, buf)
+	req, err := http.NewRequest(http.MethodPost, sub.Endpoint, buf)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Encoding", "aes128gcm")
+	req.Header.Set("TTL", "10")
+
+	return req, nil
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
