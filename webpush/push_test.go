@@ -17,7 +17,7 @@ func btoa(b []byte) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-func Test_getEceInfo(t *testing.T) {
+func Test_encryption(t *testing.T) {
 	assert := assert.New(t)
 
 	asPub := &PublicKey{}
@@ -38,8 +38,14 @@ func Test_getEceInfo(t *testing.T) {
 
 	salt := atob("DGv6ra1nlYgDCS1FRnbzlw")
 
-	h := getEceInfo(sub, as, salt)
+	info := getEceInfo(sub, as, salt)
 
-	assert.Equal(atob("oIhVW04MRdy2XN9CiKLxTg"), h.cek)
-	assert.Equal(atob("4h_95klXJ5E_qnoN"), h.nonce)
+	assert.Equal(atob("oIhVW04MRdy2XN9CiKLxTg"), info.cek)
+	assert.Equal(atob("4h_95klXJ5E_qnoN"), info.nonce)
+
+	plaintext := atob("V2hlbiBJIGdyb3cgdXAsIEkgd2FudCB0byBiZSBhIHdhdGVybWVsb24")
+
+	ciphertext, err := encrypt(plaintext, info)
+	assert.NoError(err)
+	assert.Equal(atob("8pfeW0KbunFT06SuDKoJH9Ql87S1QUrdirN6GcG7sFz1y1sqLgVi1VhjVkHsUoEsbI_0LpXMuGvnzQ"), ciphertext)
 }

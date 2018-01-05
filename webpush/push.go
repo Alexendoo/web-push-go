@@ -2,10 +2,13 @@ package webpush
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"errors"
 	"math/big"
 )
 
@@ -119,4 +122,43 @@ func hmacSha256(key, message []byte) []byte {
 	mac.Write(message)
 
 	return mac.Sum(nil)
+}
+
+func encrypt(plaintext []byte, info *eceInfo) ([]byte, error) {
+	block, err := aes.NewCipher(info.cek)
+	if err != nil {
+		return nil, err
+	}
+
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	// padding delimeter
+	plaintext = append(plaintext, 0x02)
+
+	ciphertext := aesgcm.Seal(nil, info.nonce, plaintext, nil)
+
+	return ciphertext, nil
+}
+
+func Encrypt(sub *Subscription, message []byte) ([]byte, error) {
+	if sub == nil {
+		return nil, errors.New("webpush: Encrypt requires non-nil Subscription")
+	}
+
+	keypair, err := generateKey(p256)
+	if err != nil {
+		return nil, err
+	}
+
+	salt, err := randomBytes(16)
+	if err != nil {
+		return nil, err
+	}
+
+	info := getEceInfo(sub, keypair, salt)
+
+	return encrypt(message, info)
 }
