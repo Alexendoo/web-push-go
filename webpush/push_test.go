@@ -45,7 +45,7 @@ func Test_encryption(t *testing.T) {
 
 	plaintext := atob("V2hlbiBJIGdyb3cgdXAsIEkgd2FudCB0byBiZSBhIHdhdGVybWVsb24")
 
-	ciphertext, err := encrypt(plaintext, info)
+	ciphertext, err := aes128gcm(plaintext, info)
 	assert.NoError(err)
 	assert.Equal(atob("8pfeW0KbunFT06SuDKoJH9Ql87S1QUrdirN6GcG7sFz1y1sqLgVi1VhjVkHsUoEsbI_0LpXMuGvnzQ"), ciphertext)
 }

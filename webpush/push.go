@@ -8,8 +8,10 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"math/big"
+	"net/http"
 )
 
 var (
@@ -124,7 +126,7 @@ func hmacSha256(key, message []byte) []byte {
 	return mac.Sum(nil)
 }
 
-func encrypt(plaintext []byte, info *eceInfo) ([]byte, error) {
+func aes128gcm(plaintext []byte, info *eceInfo) ([]byte, error) {
 	block, err := aes.NewCipher(info.cek)
 	if err != nil {
 		return nil, err
@@ -143,11 +145,7 @@ func encrypt(plaintext []byte, info *eceInfo) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func Encrypt(sub *Subscription, message []byte) ([]byte, error) {
-	if sub == nil {
-		return nil, errors.New("webpush: Encrypt requires non-nil Subscription")
-	}
-
+func Encrypt(sub *Subscription, message []byte) (*http.Request, error) {
 	keypair, err := generateKey(p256)
 	if err != nil {
 		return nil, err
@@ -158,7 +156,41 @@ func Encrypt(sub *Subscription, message []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	return encrypt(sub, keypair, message, salt)
+}
+
+func encrypt(sub *Subscription, keypair *KeyPair, message, salt []byte) (*http.Request, error) {
+	if sub == nil {
+		return nil, errors.New("webpush: Encrypt requires non-nil Subscription")
+	}
+
+	pubBytes, err := keypair.Pub.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+
 	info := getEceInfo(sub, keypair, salt)
 
-	return encrypt(message, info)
+	ciphertext, err := aes128gcm(message, info)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := &bytes.Buffer{}
+
+	// Header
+	buf.Write(info.salt)
+
+	rs := make([]byte, 4)
+	rsLen := uint32(len(ciphertext))
+	binary.BigEndian.PutUint32(rs, rsLen)
+	buf.Write(rs)
+
+	buf.WriteByte(65)
+	buf.Write(pubBytes)
+
+	// Body
+	buf.Write(ciphertext)
+
+	return http.NewRequest(http.MethodPost, sub.Endpoint, buf)
 }
