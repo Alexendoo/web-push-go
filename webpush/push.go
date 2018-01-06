@@ -145,13 +145,6 @@ func aes128gcm(plaintext []byte, info *eceInfo) ([]byte, error) {
 	return ciphertext, nil
 }
 
-// TODO:
-// - More docs
-// - Move verification from encoding back into encrypt()
-// - Configurable TTL, etc -- options object?
-// - VAPID
-// - E2E test
-
 func Encrypt(sub *Subscription, message []byte) (*http.Request, error) {
 	keypair, err := generateKey(p256)
 	if err != nil {
