@@ -9,7 +9,7 @@ import (
 
 // Subscription is a User Agent's push message subscription
 //
-// - https://www.w3.org/TR/push-api/#dom-pushsubscription
+//  - https://www.w3.org/TR/push-api/#dom-pushsubscription
 type Subscription struct {
 	// The push endpoint URL, unique to the given push subscription
 	Endpoint string
