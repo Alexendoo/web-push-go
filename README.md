@@ -6,3 +6,4 @@
  - VAPID
  - E2E test
  - Review public API, webpush.New() and webpush.Send()?
+ - Opt in > 4096 bytes + default error?
