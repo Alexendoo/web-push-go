@@ -21,10 +21,11 @@ func btoa(b []byte) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// Example data from:
+// Test data from:
 // - https://tools.ietf.org/html/rfc8291#section-5
 // - https://tools.ietf.org/html/rfc8291#appendix-A
 func Test_encryption(t *testing.T) {
+
 	assert := assert.New(t)
 
 	asPub := &PublicKey{}
