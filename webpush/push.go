@@ -145,7 +145,7 @@ func aes128gcm(plaintext []byte, info *eceInfo) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func Encrypt(sub *Subscription, message []byte) (*http.Request, error) {
+func New(sub *Subscription, message []byte) (*http.Request, error) {
 	keypair, err := generateKey(p256)
 	if err != nil {
 		return nil, err
