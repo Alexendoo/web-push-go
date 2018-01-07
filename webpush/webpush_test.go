@@ -20,7 +20,7 @@ func TestNew(t *testing.T) {
 
 	message := []byte("hello world!")
 
-	req, err := New(sub, message)
+	req, err := New(sub, message, nil)
 	assert.NoError(err)
 	assert.NotNil(req)
 

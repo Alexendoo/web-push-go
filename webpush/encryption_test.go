@@ -47,14 +47,12 @@ func Test_encryption(t *testing.T) {
 	salt := atob("DGv6ra1nlYgDCS1FRnbzlw")
 	message := atob("V2hlbiBJIGdyb3cgdXAsIEkgd2FudCB0byBiZSBhIHdhdGVybWVsb24")
 
-	req, err := encrypt(sub, as, message, salt)
+	reader, err := encrypt(sub, as, message, salt, nil)
 	assert.NoError(err)
 
-	assert.Equal("aes128gcm", req.Header.Get("Content-Encoding"))
-
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := ioutil.ReadAll(reader)
 	assert.NoError(err)
 
 	expected := atob("DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN")
-	assert.Equal(expected, body)
+	assert.EqualValues(expected, body)
 }

@@ -9,9 +9,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"errors"
+	"io"
 	"math/big"
-	"net/http"
 )
 
 var (
@@ -133,11 +132,7 @@ func aes128gcm(plaintext []byte, info *eceInfo) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func encrypt(sub *Subscription, keypair *KeyPair, message, salt []byte) (*http.Request, error) {
-	if sub == nil {
-		return nil, errors.New("webpush: Encrypt requires non-nil Subscription")
-	}
-
+func encrypt(sub *Subscription, keypair *KeyPair, message, salt []byte, opts *Options) (io.Reader, error) {
 	pubBytes, err := keypair.Pub.MarshalBinary()
 	if err != nil {
 		return nil, err
@@ -166,20 +161,5 @@ func encrypt(sub *Subscription, keypair *KeyPair, message, salt []byte) (*http.R
 	// Body
 	buf.Write(ciphertext)
 
-	req, err := http.NewRequest(http.MethodPost, sub.Endpoint, buf)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Encoding", "aes128gcm")
-	req.Header.Set("TTL", "10")
-
-	return req, nil
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
+	return buf, nil
 }

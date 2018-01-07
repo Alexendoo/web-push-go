@@ -4,7 +4,10 @@ Package webpush implements the message encryption required by the Web Push proto
 package webpush
 
 import (
+	"errors"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 // Subscription is a User Agent's push message subscription
@@ -20,9 +23,40 @@ type Subscription struct {
 	P256DH *PublicKey
 }
 
+// Urgency allows battery powered devices to avoid expending power on less
+// important messages by only fetching messages of a certain urgency
+type Urgency string
+
+var (
+	// UrgencyVeryLow sends notifications to devices that are both connected
+	// to power and on Wi-Fi
+	UrgencyVeryLow Urgency = "very-low"
+	// UrgencyLow includes devices that are on either power or Wi-Fi
+	UrgencyLow Urgency = "low"
+	// UrgencyNormal includes devices that are not connected to power nor Wi-Fi
+	// with acceptable remaining battery life
+	UrgencyNormal Urgency = "normal"
+	// UrgencyHigh includes devices with low battery power
+	UrgencyHigh Urgency = "high"
+)
+
+type Options struct {
+	Urgency Urgency
+	TTL     time.Duration
+	Topic   string
+}
+
 // New encrypts the message and creates a HTTP request that will submit it to
 // the push endpoint
-func New(sub *Subscription, message []byte) (*http.Request, error) {
+func New(sub *Subscription, message []byte, opts *Options) (*http.Request, error) {
+	if sub == nil {
+		return nil, errors.New("webpush: Encrypt requires non-nil Subscription")
+	}
+
+	if opts == nil {
+		opts = &Options{}
+	}
+
 	keypair, err := generateKey(p256)
 	if err != nil {
 		return nil, err
@@ -33,5 +67,41 @@ func New(sub *Subscription, message []byte) (*http.Request, error) {
 		return nil, err
 	}
 
-	return encrypt(sub, keypair, message, salt)
+	reader, err := encrypt(sub, keypair, message, salt, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, sub.Endpoint, reader)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Encoding", "aes128gcm")
+	req.Header.Set("TTL", formatTTL(opts.TTL))
+	if opts.Urgency != "" {
+		req.Header.Set("Urgency", string(opts.Urgency))
+	}
+	if opts.Topic != "" {
+		req.Header.Set("Topic", opts.Topic)
+	}
+
+	return req, nil
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func formatTTL(ttl time.Duration) string {
+	if ttl <= 0 {
+		return "0"
+	}
+
+	secs := int64(ttl / time.Second)
+
+	return strconv.FormatInt(secs, 10)
 }
