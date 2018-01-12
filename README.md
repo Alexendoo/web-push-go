@@ -10,7 +10,7 @@
  - [Examples](https://golang.org/pkg/testing/#hdr-Examples)
  - Move verification from encoding back into encrypt()
  - ~~Configurable TTL, etc -- options object?~~
- - VAPID
+ - ~~VAPID~~
  - E2E test
  - ~~Review public API, webpush.New() and~~ webpush.Send()?
  - Opt in > 4096 bytes + default error?

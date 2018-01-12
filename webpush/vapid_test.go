@@ -5,7 +5,7 @@ import (
 	"crypto/elliptic"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,18 +19,16 @@ func TestVapid(t *testing.T) {
 	p, err := GenerateSigningKey()
 	assert.NoError(err)
 
-	str, err := vapidHeader(req.URL, p)
+	err = vapidHeader(req, p)
 	assert.NoError(err)
 
-	r := regexp.MustCompile(`t=([^,]*)`)
-	tokenString := r.FindStringSubmatch(str)[1]
+	tokenString := strings.Split(req.Header.Get("Authorization"), " ")[1]
 	assert.NotEmpty(tokenString)
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		assert.Equal(jwt.SigningMethodES256, token.Method)
 
-		r = regexp.MustCompile(`k=([^,]*)`)
-		pubString := r.FindStringSubmatch(str)[1]
+		pubString := strings.Split(req.Header.Get("Crypto-Key"), "=")[1]
 		assert.NotEmpty(pubString)
 
 		x, y := elliptic.Unmarshal(p256, atob(pubString))
