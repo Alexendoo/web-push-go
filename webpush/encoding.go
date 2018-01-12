@@ -1,6 +1,7 @@
 package webpush
 
 import (
+	"bytes"
 	"crypto/elliptic"
 	"encoding/base64"
 	"encoding/json"
@@ -25,10 +26,15 @@ type keysJSON struct {
 type urlSafeBytes []byte
 
 func (k *urlSafeBytes) UnmarshalText(text []byte) error {
-	maxLen := base64.URLEncoding.DecodedLen(len(text))
+	// Some browsers incorrectly encode values as padded base64
+	text = bytes.TrimRightFunc(text, func(r rune) bool {
+		return r == '='
+	})
+
+	maxLen := base64.RawURLEncoding.DecodedLen(len(text))
 	out := make(urlSafeBytes, maxLen)
 
-	n, err := base64.URLEncoding.Decode(out, text)
+	n, err := base64.RawURLEncoding.Decode(out, text)
 
 	*k = out[:n]
 

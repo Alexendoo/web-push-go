@@ -27,9 +27,9 @@ func vapidHeader(url *url.URL, priv *ecdsa.PrivateKey) (string, error) {
 	buf := &bytes.Buffer{}
 
 	// Token parameter || header || field seperator
-	// 't=' || base64('{"alg":"ES256"}') || '.'
+	// `vapid t=` || base64(`{"alg":"ES256"}`) || `.`
 	// https://tools.ietf.org/html/rfc7515#appendix-A.3.1
-	buf.Write([]byte("t=eyJhbGciOiJFUzI1NiJ9."))
+	buf.Write([]byte("vapid t=eyJhbGciOiJFUzI1NiJ9."))
 
 	// Claims
 	c := &claims{
@@ -63,10 +63,15 @@ func vapidHeader(url *url.URL, priv *ecdsa.PrivateKey) (string, error) {
 	buf.Write(sigB64)
 
 	// Public key parameter
-	buf.Write([]byte(" k="))
+	buf.Write([]byte(",k="))
 
 	// public key
-	buf.Write(elliptic.Marshal(p256, priv.X, priv.Y))
+	pub := elliptic.Marshal(p256, priv.X, priv.Y)
+
+	pubB64 := make([]byte, base64.RawURLEncoding.EncodedLen(len(pub)))
+	base64.RawURLEncoding.Encode(pubB64, pub)
+
+	buf.Write(pubB64)
 
 	return buf.String(), nil
 }

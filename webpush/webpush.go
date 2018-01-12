@@ -4,6 +4,7 @@ Package webpush implements the message encryption required by the Web Push proto
 package webpush
 
 import (
+	"crypto/ecdsa"
 	"errors"
 	"net/http"
 	"strconv"
@@ -41,9 +42,10 @@ var (
 )
 
 type Options struct {
-	Urgency Urgency
-	TTL     time.Duration
-	Topic   string
+	SigningKey *ecdsa.PrivateKey
+	Urgency    Urgency
+	TTL        time.Duration
+	Topic      string
 }
 
 // New encrypts the message and creates a HTTP request that will submit it to
@@ -77,13 +79,9 @@ func New(sub *Subscription, message []byte, opts *Options) (*http.Request, error
 		return nil, err
 	}
 
-	req.Header.Set("Content-Encoding", "aes128gcm")
-	req.Header.Set("TTL", formatTTL(opts.TTL))
-	if opts.Urgency != "" {
-		req.Header.Set("Urgency", string(opts.Urgency))
-	}
-	if opts.Topic != "" {
-		req.Header.Set("Topic", opts.Topic)
+	err = setHeaders(req, opts)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -94,6 +92,27 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func setHeaders(req *http.Request, opts *Options) error {
+	req.Header.Set("Content-Encoding", "aes128gcm")
+	req.Header.Set("TTL", formatTTL(opts.TTL))
+	if opts.Urgency != "" {
+		req.Header.Set("Urgency", string(opts.Urgency))
+	}
+	if opts.Topic != "" {
+		req.Header.Set("Topic", opts.Topic)
+	}
+	if opts.SigningKey != nil {
+		header, err := vapidHeader(req.URL, opts.SigningKey)
+		if err != nil {
+			return err
+		}
+
+		req.Header.Set("Authorization", header)
+	}
+
+	return nil
 }
 
 func formatTTL(ttl time.Duration) string {
