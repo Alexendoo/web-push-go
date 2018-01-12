@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"net/http"
 	"net/url"
 	"time"
 )
@@ -23,21 +24,26 @@ func GenerateSigningKey() (*ecdsa.PrivateKey, error) {
 	return ecdsa.GenerateKey(p256, rand.Reader)
 }
 
-// https://tools.ietf.org/html/rfc8292
-func vapidHeader(url *url.URL, priv *ecdsa.PrivateKey) (string, error) {
+// We have to implement the expired draft-01, since Chrome does not support the
+// current specification
+// https://tools.ietf.org/html/draft-ietf-webpush-vapid-01
+// https://bugs.chromium.org/p/chromium/issues/detail?id=712776
+func vapidHeader(req *http.Request, priv *ecdsa.PrivateKey) error {
 	buf := &bytes.Buffer{}
-	buf.Write([]byte("vapid t="))
+	buf.Write([]byte("WebPush "))
 
-	jwt, err := buildJWT(url, priv)
+	jwt, err := buildJWT(req.URL, priv)
 	if err != nil {
-		return "", err
+		return err
 	}
 	jwt.WriteTo(buf)
 
-	// Public key parameter
-	buf.Write([]byte(",k="))
+	req.Header.Set("Authorization", buf.String())
 
 	// public key
+	buf.Reset()
+	buf.Write([]byte("p256ecdsa="))
+
 	pub := elliptic.Marshal(p256, priv.X, priv.Y)
 
 	pubB64 := make([]byte, base64.RawURLEncoding.EncodedLen(len(pub)))
@@ -45,16 +51,17 @@ func vapidHeader(url *url.URL, priv *ecdsa.PrivateKey) (string, error) {
 
 	buf.Write(pubB64)
 
-	return buf.String(), nil
+	req.Header.Set("Crypto-Key", buf.String())
+
+	return nil
 }
 
 // https://tools.ietf.org/html/rfc8292#section-2
 func buildJWT(url *url.URL, priv *ecdsa.PrivateKey) (*bytes.Buffer, error) {
 	jwt := &bytes.Buffer{}
 
-	// base64({"alg":"ES256"}) || .
-	// https://tools.ietf.org/html/rfc7515#appendix-A.3.1
-	jwt.Write([]byte("eyJhbGciOiJFUzI1NiJ9."))
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"typ":"JWT","alg":"ES256"}`))
+	jwt.WriteString(header)
 
 	// Claims
 	c := &claims{
@@ -70,9 +77,11 @@ func buildJWT(url *url.URL, priv *ecdsa.PrivateKey) (*bytes.Buffer, error) {
 	claimsB64 := make([]byte, base64.RawURLEncoding.EncodedLen(len(claimsJSON)))
 	base64.RawURLEncoding.Encode(claimsB64, claimsJSON)
 
+	jwt.WriteByte('.')
 	jwt.Write(claimsB64)
 
 	// Signature
+
 	sum := sha256.Sum256(jwt.Bytes())
 	r, s, err := ecdsa.Sign(rand.Reader, priv, sum[:])
 	if err != nil {
@@ -84,7 +93,7 @@ func buildJWT(url *url.URL, priv *ecdsa.PrivateKey) (*bytes.Buffer, error) {
 	sigB64 := make([]byte, base64.RawURLEncoding.EncodedLen(len(sig)))
 	base64.RawURLEncoding.Encode(sigB64, sig)
 
-	jwt.WriteByte('.') // second field seperator
+	jwt.WriteByte('.')
 	jwt.Write(sigB64)
 
 	return jwt, nil

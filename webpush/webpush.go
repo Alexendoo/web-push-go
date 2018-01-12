@@ -104,12 +104,10 @@ func setHeaders(req *http.Request, opts *Options) error {
 		req.Header.Set("Topic", opts.Topic)
 	}
 	if opts.SigningKey != nil {
-		header, err := vapidHeader(req.URL, opts.SigningKey)
+		err := vapidHeader(req, opts.SigningKey)
 		if err != nil {
 			return err
 		}
-
-		req.Header.Set("Authorization", header)
 	}
 
 	return nil

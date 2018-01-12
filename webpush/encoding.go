@@ -26,7 +26,7 @@ type keysJSON struct {
 type urlSafeBytes []byte
 
 func (k *urlSafeBytes) UnmarshalText(text []byte) error {
-	// Some browsers incorrectly encode values as padded base64
+	// Chrome incorrectly encode values as padded base64
 	text = bytes.TrimRightFunc(text, func(r rune) bool {
 		return r == '='
 	})
