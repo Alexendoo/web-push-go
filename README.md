@@ -1,9 +1,9 @@
-# web-push-go ![[Build Status][ci]][ci-badge] ![[GoDoc][godoc]][godoc-badge]
+# web-push-go [![Build Status]][ci-url] [![GoDoc]][doc-url]
 
-[ci]: https://travis-ci.org/Alexendoo/web-push-go
-[ci-badge]: https://travis-ci.org/Alexendoo/web-push-go.svg?branch=master
-[godoc]: https://godoc.org/github.com/Alexendoo/web-push-go/webpush
-[godoc-badge]: https://godoc.org/github.com/Alexendoo/web-push-go?status.svg
+[ci-url]: https://travis-ci.org/Alexendoo/web-push-go
+[Build Status]: https://travis-ci.org/Alexendoo/web-push-go.svg?branch=master
+[doc-url]: https://godoc.org/github.com/Alexendoo/web-push-go/webpush
+[GoDoc]: https://godoc.org/github.com/Alexendoo/web-push-go?status.svg
 
 ### TODO before release
  - More docs
