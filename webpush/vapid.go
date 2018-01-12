@@ -23,44 +23,16 @@ func GenerateSigningKey() (*ecdsa.PrivateKey, error) {
 	return ecdsa.GenerateKey(p256, rand.Reader)
 }
 
+// https://tools.ietf.org/html/rfc8292
 func vapidHeader(url *url.URL, priv *ecdsa.PrivateKey) (string, error) {
 	buf := &bytes.Buffer{}
+	buf.Write([]byte("vapid t="))
 
-	// Token parameter || header || field seperator
-	// `vapid t=` || base64(`{"alg":"ES256"}`) || `.`
-	// https://tools.ietf.org/html/rfc7515#appendix-A.3.1
-	buf.Write([]byte("vapid t=eyJhbGciOiJFUzI1NiJ9."))
-
-	// Claims
-	c := &claims{
-		Audience: getOrigin(url),
-		Expiry:   time.Now().Add(1 * time.Hour).Unix(),
-	}
-
-	claimsJSON, err := json.Marshal(c)
+	jwt, err := buildJWT(url, priv)
 	if err != nil {
 		return "", err
 	}
-
-	claimsB64 := make([]byte, base64.RawURLEncoding.EncodedLen(len(claimsJSON)))
-	base64.RawURLEncoding.Encode(claimsB64, claimsJSON)
-
-	buf.Write(claimsB64)
-
-	// Signature
-	sum := sha256.Sum256(buf.Bytes())
-	r, s, err := ecdsa.Sign(rand.Reader, priv, sum[:])
-	if err != nil {
-		return "", err
-	}
-
-	sig := append(r.Bytes(), s.Bytes()...)
-
-	sigB64 := make([]byte, base64.RawURLEncoding.EncodedLen(len(sig)))
-	base64.RawURLEncoding.Encode(sigB64, sig)
-
-	buf.WriteByte('.') // second field seperator
-	buf.Write(sigB64)
+	jwt.WriteTo(buf)
 
 	// Public key parameter
 	buf.Write([]byte(",k="))
@@ -74,6 +46,48 @@ func vapidHeader(url *url.URL, priv *ecdsa.PrivateKey) (string, error) {
 	buf.Write(pubB64)
 
 	return buf.String(), nil
+}
+
+// https://tools.ietf.org/html/rfc8292#section-2
+func buildJWT(url *url.URL, priv *ecdsa.PrivateKey) (*bytes.Buffer, error) {
+	jwt := &bytes.Buffer{}
+
+	// base64({"alg":"ES256"}) || .
+	// https://tools.ietf.org/html/rfc7515#appendix-A.3.1
+	jwt.Write([]byte("eyJhbGciOiJFUzI1NiJ9."))
+
+	// Claims
+	c := &claims{
+		Audience: getOrigin(url),
+		Expiry:   time.Now().Add(1 * time.Hour).Unix(),
+	}
+
+	claimsJSON, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+
+	claimsB64 := make([]byte, base64.RawURLEncoding.EncodedLen(len(claimsJSON)))
+	base64.RawURLEncoding.Encode(claimsB64, claimsJSON)
+
+	jwt.Write(claimsB64)
+
+	// Signature
+	sum := sha256.Sum256(jwt.Bytes())
+	r, s, err := ecdsa.Sign(rand.Reader, priv, sum[:])
+	if err != nil {
+		return nil, err
+	}
+
+	sig := append(r.Bytes(), s.Bytes()...)
+
+	sigB64 := make([]byte, base64.RawURLEncoding.EncodedLen(len(sig)))
+	base64.RawURLEncoding.Encode(sigB64, sig)
+
+	jwt.WriteByte('.') // second field seperator
+	jwt.Write(sigB64)
+
+	return jwt, nil
 }
 
 func getOrigin(url *url.URL) string {
